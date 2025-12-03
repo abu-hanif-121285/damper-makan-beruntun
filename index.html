@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DAMPER - Dam-daman Perkalian</title>
+    
+    <!-- Memuat Library React, ReactDOM, dan Babel dari CDN (Internet) -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Memuat Tailwind CSS untuk tampilan -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Gaya tambahan untuk animasi -->
+    <style>
+        @keyframes bounce-in {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-bounce-in {
+            animation: bounce-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Mengambil fungsi dari React Global
+        const { useState, useEffect, useRef } = React;
+
+        // --- Ikon SVG (Pengganti Lucide React agar bisa jalan tanpa install) ---
+        const Icons = {
+            Calculator: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-orange-500"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>,
+            RefreshCw: ({size=16}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>,
+            Info: ({size=16, className}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>,
+            X: ({size=20}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>,
+            Trophy: ({size=40, className}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>,
+            Swords: ({size=16}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" x2="19" y1="19" y2="13"/><line x1="16" x2="20" y1="16" y2="20"/><line x1="19" x2="21" y1="21" y2="19"/></svg>,
+            Zap: ({size=16, className}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        };
+
+        // --- Data Papan (GAME LOGIC) ---
+        const BOARD_VALUES = [
+            [16, 5, 15, 14, 12, 40, 20, 28, 6, 1],
+            [3, 30, 2, 35, 16, 42, 64, 24, 8, 49],
+            [4, 9, 6, 7, 63, 35, 5, 56, 9, 20],
+            [28, 20, 54, 56, 10, 48, 12, 10, 54, 45],
+            [15, 32, 8, 42, 40, 50, 30, 20, 9, 30],
+            [10, 21, 30, 72, 18, 80, 70, 21, 60, 40],
+            [12, 63, 8, 24, 80, 6, 36, 10, 48, 36],
+            [18, 4, 10, 3, 72, 25, 40, 8, 50, 81],
+            [60, 6, 12, 32, 27, 100, 24, 10, 27, 70],
+            [2, 24, 36, 4, 16, 45, 14, 18, 7, 18]
+        ];
+
+        const PLAYER_RED = 'red';
+        const PLAYER_GREEN = 'green';
+
+        const App = () => {
+            const [board, setBoard] = useState([]);
+            const [turn, setTurn] = useState(PLAYER_RED);
+            const [selectedPiece, setSelectedPiece] = useState(null);
+            const [validMoves, setValidMoves] = useState([]);
+            const [scores, setScores] = useState({ red: 40, green: 40 });
+            const [pendingMove, setPendingMove] = useState(null);
+            const [mathInput, setMathInput] = useState({ a: '', b: '' });
+            const [mathError, setMathError] = useState('');
+            const [winner, setWinner] = useState(null);
+            const [showRules, setShowRules] = useState(false);
+            const [isChaining, setIsChaining] = useState(false);
+            
+            const inputARef = useRef(null);
+
+            useEffect(() => {
+                initializeGame();
+            }, []);
+
+            useEffect(() => {
+                if (pendingMove && inputARef.current) {
+                    inputARef.current.focus();
+                }
+            }, [pendingMove]);
+
+            const initializeGame = () => {
+                const newBoard = BOARD_VALUES.map((row, rIndex) => 
+                    row.map((val, cIndex) => {
+                        let piece = null;
+                        if (rIndex < 4) piece = PLAYER_RED;
+                        else if (rIndex > 5) piece = PLAYER_GREEN;
+                        
+                        return { value: val, piece: piece, row: rIndex, col: cIndex };
+                    })
+                );
+                setBoard(newBoard);
+                setTurn(PLAYER_RED);
+                setScores({ red: 40, green: 40 });
+                setWinner(null);
+                setMathInput({ a: '', b: '' });
+                setSelectedPiece(null);
+                setValidMoves([]);
+                setPendingMove(null);
+                setMathError('');
+                setIsChaining(false);
+            };
+
+            useEffect(() => {
+                if (scores.red === 0) setWinner(PLAYER_GREEN);
+                else if (scores.green === 0) setWinner(PLAYER_RED);
+            }, [scores]);
+
+            const getValidMoves = (row, col, currentBoard, player) => {
+                const moves = [];
+                const directions = [
+                    [-1, -1], [-1, 0], [-1, 1],
+                    [0, -1],           [0, 1],
+                    [1, -1],  [1, 0],  [1, 1]
+                ];
+
+                directions.forEach(([dr, dc]) => {
+                    const r1 = row + dr;
+                    const c1 = col + dc;
+
+                    if (r1 >= 0 && r1 < 10 && c1 >= 0 && c1 < 10) {
+                        if (currentBoard[r1][c1].piece === null) {
+                            moves.push({ r: r1, c: c1, type: 'step' });
+                        } else if (currentBoard[r1][c1].piece !== player) {
+                            const r2 = r1 + dr;
+                            const c2 = c1 + dc;
+                            if (r2 >= 0 && r2 < 10 && c2 >= 0 && c2 < 10) {
+                                if (currentBoard[r2][c2].piece === null) {
+                                    moves.push({ 
+                                        r: r2, c: c2, type: 'capture', 
+                                        captureRow: r1, captureCol: c1,
+                                        targetValue: currentBoard[r2][c2].value
+                                    });
+                                }
+                            }
+                        }
+                    }
+                });
+                return moves;
+            };
+
+            const handleSquareClick = (row, col) => {
+                if (winner || pendingMove) return;
+
+                const move = validMoves.find(m => m.r === row && m.c === col);
+                if (move) {
+                    if (move.type === 'step') {
+                        executeMove(move);
+                    } else if (move.type === 'capture') {
+                        setPendingMove(move);
+                        setMathInput({ a: '', b: '' });
+                        setMathError('');
+                    }
+                    return;
+                }
+
+                if (isChaining) return;
+
+                const clickedCell = board[row][col];
+                
+                if (clickedCell.piece === turn) {
+                    setSelectedPiece({ r: row, c: col });
+                    const moves = getValidMoves(row, col, board, turn);
+                    setValidMoves(moves);
+                } else {
+                    setSelectedPiece(null);
+                    setValidMoves([]);
+                }
+            };
+
+            const executeMove = (move) => {
+                const newBoard = [...board.map(row => [...row.map(cell => ({...cell}))])];
+                
+                newBoard[move.r][move.c].piece = turn;
+                newBoard[selectedPiece.r][selectedPiece.c].piece = null;
+
+                let canChain = false;
+                let nextChainMoves = [];
+
+                if (move.type === 'capture') {
+                    newBoard[move.captureRow][move.captureCol].piece = null;
+                    const opponent = turn === PLAYER_RED ? 'green' : 'red';
+                    setScores(prev => ({ ...prev, [opponent]: prev[opponent] - 1 }));
+
+                    const potentialMoves = getValidMoves(move.r, move.c, newBoard, turn);
+                    nextChainMoves = potentialMoves.filter(m => m.type === 'capture');
+                    
+                    if (nextChainMoves.length > 0) {
+                        canChain = true;
+                    }
+                }
+
+                setBoard(newBoard);
+                setPendingMove(null);
+
+                if (canChain) {
+                    setIsChaining(true);
+                    setSelectedPiece({ r: move.r, c: move.c });
+                    setValidMoves(nextChainMoves);
+                } else {
+                    setIsChaining(false);
+                    setTurn(turn === PLAYER_RED ? PLAYER_GREEN : PLAYER_RED);
+                    setSelectedPiece(null);
+                    setValidMoves([]);
+                }
+            };
+
+            const handleMathSubmit = (e) => {
+                e.preventDefault();
+                if (!pendingMove) return;
+
+                const valA = parseInt(mathInput.a);
+                const valB = parseInt(mathInput.b);
+                const target = pendingMove.targetValue;
+
+                if (isNaN(valA) || isNaN(valB)) {
+                    setMathError('Isi kedua kotak angka!');
+                    return;
+                }
+
+                if (valA * valB === target) {
+                    executeMove(pendingMove);
+                } else {
+                    setMathError(`Salah! ${valA} x ${valB} = ${valA*valB}. Target: ${target}`);
+                }
+            };
+
+            const cancelMove = () => {
+                if (isChaining) {
+                    setPendingMove(null);
+                    setMathInput({ a: '', b: '' });
+                    setMathError('');
+                    return; 
+                }
+                setPendingMove(null);
+                setMathInput({ a: '', b: '' });
+                setMathError('');
+            };
+
+            return (
+                <div className="min-h-screen bg-slate-50 flex flex-col items-center py-6 font-sans">
+                    <div className="text-center mb-4">
+                        <h1 className="text-3xl font-extrabold text-slate-800 tracking-wider flex items-center justify-center gap-2">
+                            <Icons.Calculator /> DAMPER
+                        </h1>
+                        <p className="text-slate-500 text-sm font-medium">Dam-daman Perkalian</p>
+                    </div>
+
+                    <div className="flex flex-col lg:flex-row gap-6 items-start justify-center w-full max-w-6xl px-4">
+                        
+                        {/* PANEL KIRI: Status & Operasi */}
+                        <div className="w-full lg:w-80 flex flex-col gap-4 order-2 lg:order-1">
+                            
+                            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden">
+                                {isChaining && (
+                                    <div className="absolute top-0 left-0 w-full bg-yellow-400 text-yellow-900 text-xs font-bold text-center py-1 animate-pulse z-10">
+                                        <Icons.Zap size={10} className="inline mr-1"/> KOMBO! LOMPAT LAGI!
+                                    </div>
+                                )}
+                                <div className="flex justify-between items-center mb-4 mt-2">
+                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Giliran Saat Ini</span>
+                                    <span className={`px-3 py-1 rounded-full text-xs font-bold text-white uppercase ${turn === PLAYER_RED ? 'bg-red-500' : 'bg-green-600'}`}>
+                                        {turn === PLAYER_RED ? 'TIM MERAH' : 'TIM HIJAU'}
+                                    </span>
+                                </div>
+                                
+                                <div className="space-y-3">
+                                    <div className={`flex justify-between items-center p-3 rounded-xl border ${turn === PLAYER_RED ? 'border-red-500 bg-red-50 ring-1 ring-red-200' : 'border-slate-100 bg-slate-50'}`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-red-400 to-red-600 shadow-md flex items-center justify-center text-white text-xs font-bold">M</div>
+                                            <span className="font-bold text-slate-700">Merah</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="block text-2xl font-mono font-bold text-slate-800 leading-none">{scores.red}</span>
+                                            <span className="text-[10px] text-slate-400">PION</span>
+                                        </div>
+                                    </div>
+
+                                    <div className={`flex justify-between items-center p-3 rounded-xl border ${turn === PLAYER_GREEN ? 'border-green-500 bg-green-50 ring-1 ring-green-200' : 'border-slate-100 bg-slate-50'}`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-green-700 shadow-md flex items-center justify-center text-white text-xs font-bold">H</div>
+                                            <span className="font-bold text-slate-700">Hijau</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="block text-2xl font-mono font-bold text-slate-800 leading-none">{scores.green}</span>
+                                            <span className="text-[10px] text-slate-400">PION</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className={`
+                                rounded-2xl shadow-lg border-2 overflow-hidden transition-all duration-300
+                                ${pendingMove 
+                                ? (turn === PLAYER_RED ? 'border-blue-400 bg-white ring-4 ring-blue-100' : 'border-green-400 bg-white ring-4 ring-green-100')
+                                : 'border-slate-200 bg-slate-100 opacity-70 grayscale'}
+                            `}>
+                                <div className={`p-3 text-center font-bold text-white text-sm uppercase tracking-wider flex items-center justify-center gap-2
+                                    ${turn === PLAYER_RED ? 'bg-blue-500' : 'bg-green-600'}
+                                `}>
+                                    <Icons.Swords size={16} /> Area Operasi Perkalian
+                                </div>
+                                
+                                <div className="p-5">
+                                    {!pendingMove ? (
+                                        <div className="text-center text-slate-400 py-4">
+                                            {isChaining ? (
+                                                <div className="text-orange-500 font-bold animate-bounce">
+                                                    <Icons.Zap className="mx-auto mb-2"/>
+                                                    Pilih target berikutnya!
+                                                </div>
+                                            ) : (
+                                                <p className="text-sm">Lakukan gerakan memakan untuk mengaktifkan kotak ini.</p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <form onSubmit={handleMathSubmit} className="flex flex-col gap-4">
+                                            <div className="text-center">
+                                                <span className="text-xs font-bold text-slate-400 uppercase">Target Angka</span>
+                                                <div className="text-4xl font-extrabold text-orange-500 my-1">{pendingMove.targetValue}</div>
+                                                <p className="text-xs text-slate-500">Buat perkalian yang hasilnya {pendingMove.targetValue}</p>
+                                            </div>
+
+                                            <div className="flex items-center justify-center gap-2">
+                                                <div className="relative group">
+                                                    <input 
+                                                        ref={inputARef}
+                                                        type="number" 
+                                                        className={`w-20 h-16 text-center text-2xl font-bold rounded-xl border-b-4 focus:outline-none transition-all
+                                                            ${turn === PLAYER_RED 
+                                                                ? 'bg-blue-50 border-blue-200 text-blue-800 focus:border-blue-500' 
+                                                                : 'bg-green-50 border-green-200 text-green-800 focus:border-green-500'
+                                                            }
+                                                        `}
+                                                        placeholder="?"
+                                                        value={mathInput.a}
+                                                        onChange={(e) => setMathInput({...mathInput, a: e.target.value})}
+                                                    />
+                                                    <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-400 bg-white px-1">A</span>
+                                                </div>
+
+                                                <span className="text-2xl font-bold text-slate-300">×</span>
+
+                                                <div className="relative group">
+                                                    <input 
+                                                        type="number" 
+                                                        className={`w-20 h-16 text-center text-2xl font-bold rounded-xl border-b-4 focus:outline-none transition-all
+                                                            ${turn === PLAYER_RED 
+                                                                ? 'bg-blue-50 border-blue-200 text-blue-800 focus:border-blue-500' 
+                                                                : 'bg-green-50 border-green-200 text-green-800 focus:border-green-500'
+                                                            }
+                                                        `}
+                                                        placeholder="?"
+                                                        value={mathInput.b}
+                                                        onChange={(e) => setMathInput({...mathInput, b: e.target.value})}
+                                                    />
+                                                    <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-400 bg-white px-1">B</span>
+                                                </div>
+                                            </div>
+
+                                            {mathError && (
+                                                <div className="text-red-500 text-xs text-center font-bold bg-red-50 p-2 rounded animate-pulse">
+                                                    {mathError}
+                                                </div>
+                                            )}
+
+                                            <div className="flex gap-2 mt-2">
+                                                <button 
+                                                    type="button"
+                                                    onClick={cancelMove}
+                                                    className="flex-1 py-2 rounded-lg text-slate-500 hover:bg-slate-100 font-bold text-sm transition"
+                                                >
+                                                    Batal
+                                                </button>
+                                                <button 
+                                                    type="submit"
+                                                    className={`flex-1 py-2 rounded-lg text-white font-bold text-sm shadow-md transition hover:-translate-y-0.5
+                                                        ${turn === PLAYER_RED ? 'bg-blue-500 hover:bg-blue-400' : 'bg-green-600 hover:bg-green-500'}
+                                                    `}
+                                                >
+                                                    SERANG!
+                                                </button>
+                                            </div>
+                                        </form>
+                                    )}
+                                </div>
+                            </div>
+
+                            <button 
+                                onClick={() => setShowRules(!showRules)}
+                                className="w-full py-3 rounded-xl border-2 border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-600 transition flex items-center justify-center gap-2 font-bold text-sm"
+                            >
+                                <Icons.Info size={16} /> Aturan Main
+                            </button>
+                            
+                            <button 
+                                onClick={initializeGame}
+                                className="w-full py-3 rounded-xl bg-slate-800 text-white hover:bg-slate-700 transition flex items-center justify-center gap-2 font-bold text-sm shadow-lg"
+                            >
+                                <Icons.RefreshCw size={16} /> Reset Game
+                            </button>
+                        </div>
+
+                        {/* PANEL KANAN: Papan Permainan */}
+                        <div className="order-1 lg:order-2 flex-1 flex justify-center">
+                            <div className={`
+                                bg-amber-800 p-4 rounded-xl shadow-2xl relative transition-all duration-300
+                                ${isChaining ? 'ring-4 ring-yellow-400 shadow-yellow-200' : ''}
+                            `}>
+                                <div className="absolute inset-0 border-2 border-amber-900/50 rounded-xl pointer-events-none"></div>
+                                
+                                <div 
+                                    className="grid grid-cols-10 gap-0.5 bg-amber-900 border-4 border-amber-700 shadow-inner"
+                                    style={{ width: 'fit-content' }}
+                                >
+                                    {board.map((row, rIndex) => (
+                                        row.map((cell, cIndex) => {
+                                            const isBlack = (rIndex + cIndex) % 2 === 1;
+                                            const bgColor = isBlack ? 'bg-orange-200' : 'bg-white';
+                                            
+                                            const isSelected = selectedPiece?.r === rIndex && selectedPiece?.c === cIndex;
+                                            const isValidMove = validMoves.find(m => m.r === rIndex && m.c === cIndex);
+                                            const isPendingTarget = pendingMove && pendingMove.r === rIndex && pendingMove.c === cIndex;
+
+                                            return (
+                                                <div 
+                                                    key={`${rIndex}-${cIndex}`}
+                                                    onClick={() => handleSquareClick(rIndex, cIndex)}
+                                                    className={`
+                                                        w-9 h-9 sm:w-11 sm:h-11 md:w-14 md:h-14 
+                                                        ${bgColor} 
+                                                        flex items-center justify-center relative cursor-pointer
+                                                        transition-all duration-100
+                                                        ${isPendingTarget ? 'ring-4 ring-orange-500 z-20 animate-pulse' : ''}
+                                                        ${isValidMove ? 'z-10' : ''}
+                                                    `}
+                                                >
+                                                    <span className={`
+                                                        absolute top-0.5 right-1 text-[8px] sm:text-[10px] font-mono select-none pointer-events-none
+                                                        ${cell.value > 99 ? 'text-[7px]' : ''}
+                                                        text-slate-400
+                                                    `}>
+                                                        {cell.value}
+                                                    </span>
+
+                                                    {isValidMove && !pendingMove && (
+                                                        <div className={`absolute inset-0 z-10 ${isValidMove.type === 'capture' ? 'bg-red-500/30 animate-pulse' : 'bg-green-500/30'} rounded-sm`}>
+                                                            <div className={`w-2 h-2 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 ${isValidMove.type === 'capture' ? 'bg-red-600' : 'bg-green-600'}`}></div>
+                                                        </div>
+                                                    )}
+
+                                                    {cell.piece && (
+                                                        <div 
+                                                            className={`
+                                                                w-[80%] h-[80%] rounded-full shadow-[0_2px_3px_rgba(0,0,0,0.4)] 
+                                                                flex items-center justify-center
+                                                                border-[1.5px] border-white/40
+                                                                transition-transform duration-200
+                                                                ${cell.piece === PLAYER_RED 
+                                                                    ? 'bg-gradient-to-br from-red-500 to-red-700' 
+                                                                    : 'bg-gradient-to-br from-green-500 to-green-700'}
+                                                                ${isSelected ? 'scale-110 shadow-lg ring-2 ring-white z-20' : ''}
+                                                                ${(pendingMove && !isPendingTarget && !isSelected) || (isChaining && !isSelected) ? 'opacity-50 grayscale-[0.5]' : ''} 
+                                                            `}
+                                                        >
+                                                            <div className="w-2/3 h-2/3 rounded-full border border-black/10 bg-white/10"></div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {showRules && (
+                        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded-xl p-6 max-w-md shadow-2xl relative">
+                                <button onClick={() => setShowRules(false)} className="absolute top-3 right-3 text-slate-400 hover:text-slate-600">
+                                    <Icons.X size={20} />
+                                </button>
+                                <h3 className="text-lg font-bold mb-3 flex items-center gap-2 text-slate-800">
+                                    <Icons.Info size={20} className="text-blue-500"/> Cara Bermain
+                                </h3>
+                                <div className="space-y-2 text-sm text-slate-600">
+                                    <p>1. <strong>Tujuan:</strong> Habiskan semua pion lawan.</p>
+                                    <p>2. <strong>Gerakan:</strong> Jalan 1 langkah ke arah manapun ke kotak kosong.</p>
+                                    <p>3. <strong>Makan Lawan:</strong> Lompat melewati pion lawan.</p>
+                                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                                        <p className="font-bold text-blue-800 mb-1">Fitur Matematika:</p>
+                                        <p>Saat memakan, "Kotak Operasi" akan aktif. Kamu wajib mengisi dua angka yang jika dikalikan hasilnya sama dengan angka di kotak tujuanmu.</p>
+                                        <p className="mt-2 text-xs text-blue-600 font-bold">*Jika setelah memakan masih ada lawan yang bisa dimakan, kamu WAJIB melanjutkan (Lompat Beruntun).</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {winner && (
+                        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                            <div className="bg-white rounded-3xl p-8 text-center max-w-sm w-full shadow-2xl border-4 border-yellow-400 animate-bounce-in">
+                                <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <Icons.Trophy size={40} className="text-yellow-600" />
+                                </div>
+                                <h2 className="text-2xl font-extrabold mb-1 text-slate-800">
+                                    {winner === PLAYER_RED ? 'TIM MERAH' : 'TIM HIJAU'} MENANG!
+                                </h2>
+                                <p className="text-slate-500 mb-6 font-medium">Permainan selesai.</p>
+                                <button 
+                                    onClick={initializeGame}
+                                    className="bg-slate-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-slate-800 transition w-full shadow-lg"
+                                >
+                                    Main Lagi
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
